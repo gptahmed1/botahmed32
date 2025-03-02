@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>منشئ بوتات تليجرام مع Gemini</title>
+  <style>
+    :root { --primary-color: #4d1979; --secondary-color: #f5f5f5; --accent-color: #e63946; --success-color: #2ecc71; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', Arial, sans-serif; }
+    body { background-color: #f9f9f9; color: #333; line-height: 1.6; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo img { width: 50px; height: 50px; }
+    .logo h1 { font-size: 1.8rem; color: var(--primary-color); }
+    .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    @media (max-width: 768px) { .main-content { grid-template-columns: 1fr; } }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+    .card h2 { margin-bottom: 15px; color: var(--primary-color); }
+    input, textarea, select { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    textarea { resize: vertical; min-height: 100px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-primary { background-color: var(--primary-color); color: white; }
+    .btn-danger { background-color: var(--accent-color); color: white; }
+    .btn-success { background-color: var(--success-color); color: white; }
+    .tooltip { position: relative; display: inline-block; }
+    .tooltip .tooltiptext { visibility: hidden; width: 200px; background-color: #333; color: #fff; text-align: center; border-radius: 6px; padding: 5px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -100px; opacity: 0; transition: opacity 0.3s; }
+    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #ddd; }
+    .tab { padding: 10px 15px; cursor: pointer; margin-right: 10px; }
+    .tab.active { border-bottom: 2px solid var(--primary-color); font-weight: bold; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .status-panel { margin-top: 20px; }
+    .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+    .status-active { background-color: var(--success-color); }
+    .status-inactive { background-color: var(--accent-color); }
+    .logs { height: 200px; overflow-y: auto; background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 10px; }
+    .log-entry { margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+    .log-info { color: #333; }
+    .log-error { color: var(--accent-color); }
+    .log-success { color: var(--success-color); }
+    .feature-list { list-style: none; padding: 0; }
+    .feature-list li { margin-bottom: 10px; display: flex; align-items: center; }
+    .webhook-settings { margin-top: 15px; }
+    .custom-webhook { display: none; margin-top: 15px; }
+    .bot-list { margin-top: 20px; }
+    .bot-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; }
+    .bot-info { flex: 1; }
+    .bot-actions { display: flex; gap: 5px; }
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fff; margin: 10% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px; }
+    .modal-close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+    .success-message { display: none; position: fixed; top: 20px; right: 20px; background-color: var(--success-color); color: white; padding: 10px 20px; border-radius: 4px; z-index: 1000; }
+    .memory-settings { margin-top: 15px; }
+    .stats-panel { display: flex; justify-content: space-between; margin-top: 20px; }
+    .stat-item { background-color: #fff; padding: 15px; border-radius: 4px; flex: 1; margin: 0 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .bot-inactive { opacity: 0.6; }
+    .btn-small { padding: 5px 10px; font-size: 0.8rem; }
+    .btn-export, .btn-import { background-color: #3498db; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="https://i.imgur.com/0oesRAB.png" alt="Logo">
+      <h1>منشئ بوتات تليجرام مع Gemini</h1>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" data-tab="setup">إنشاء بوت</div>
+      <div class="tab" data-tab="manage">إدارة البوتات</div>
+    </div>
+    
+    <div class="main-content">
+      <div class="tab-content active" id="setup-tab">
+        <div class="card">
+          <h2>إعدادات البوت الأساسية</h2>
+          <div class="form-group">
+            <label for="telegram-token">توكن بوت تليجرام <span class="tooltip">?<span class="tooltiptext">الحصول عليه من BotFather على تليجرام</span></span></label>
+            <input type="text" id="telegram-token" placeholder="5423456789:AAFD_EdT2l-KGGIHgvCcbC66BnvWMBjJL9E">
+          </div>
+          <div class="form-group">
+            <label for="gemini-token">توكن Gemini API <span class="tooltip">?<span class="tooltiptext">الحصول عليه من makersuite.google.com</span></span></label>
+            <input type="text" id="gemini-token" placeholder="AIzaSyDfGtrq2_vJCvmLV...">
+          </div>
+          <div class="form-group">
+            <label for="system-instruction">تعليمات النظام</label>
+            <textarea id="system-instruction" placeholder="أنت مساعد مفيد ومهذب..."></textarea>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h2>قوالب جاهزة</h2>
+          <div class="form-group">
+            <label>اختر دور البوت</label>
+            <select id="template-select" onchange="applyTemplate(this.value)">
+              <option value="">اختر قالب...</option>
+              <option value="assistant">مساعد شخصي</option>
+              <option value="teacher">معلم</option>
+              <option value="writer">كاتب محتوى</option>
+              <option value="coder">مبرمج</option>
+              <option value="translator">مترجم</option>
+              <option value="analyzer">محلل بيانات</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="advanced-tab">
+        <div class="card">
+          <h2>إعدادات متقدمة</h2>
+          
+          <div class="form-group">
+            <label>دعم الوسائط المتعددة <span class="tooltip">?<span class="tooltiptext">اختر أنواع الوسائط التي يدعمها البوت</span></span></label>
+            <ul class="feature-list">
+              <li>
+                <input type="checkbox" id="support-images" checked>
+                <label for="support-images">صور</label>
+              </li>
+              <li>
+                <input type="checkbox" id="support-video">
+                <label for="support-video">فيديو</label>
+              </li>
+              <li>
+                <input type="checkbox" id="support-audio">
+                <label for="support-audio">تسجيلات صوتية</label>
+              </li>
+              <li>
+                <input type="checkbox" id="support-documents">
+                <label for="support-documents">مستندات</label>
+              </li>
+            </ul>
+          </div>
+          
+          <div class="form-group">
+            <label for="webhook-mode">وضع التوصيل <span class="tooltip">?<span class="tooltiptext">طريقة اتصال البوت بخادم تليجرام</span></span></label>
+            <select id="webhook-mode" onchange="toggleWebhookSettings()">
+              <option value="dynamic">ويب هوك ديناميكي (تلقائي)</option>
+              <option value="custom">ويب هوك مخصص</option>
+              <option value="polling">Long Polling (بدون ويب هوك)</option>
+            </select>
+          </div>
+          
+          <div class="custom-webhook" id="custom-webhook-settings">
+            <div class="form-group">
+              <label for="custom-webhook-url">عنوان الويب هوك المخصص</label>
+              <input type="text" id="custom-webhook-url" placeholder="https://yourserver.com/webhook">
+            </div>
+          </div>
+          
+          <div class="memory-settings">
+            <div class="form-group">
+              <label for="memory-limit">الحد الأقصى للذاكرة <span class="tooltip">?<span class="tooltiptext">عدد الرسائل التي يتذكرها البوت</span></span></label>
+              <input type="range" id="memory-limit" min="1" max="50" value="10" oninput="document.getElementById('memory-value').textContent = this.value">
+              <span id="memory-value">10</span> رسائل
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="model-select">نموذج Gemini <span class="tooltip">?<span class="tooltiptext">اختر نموذج الذكاء الاصطناعي</span></span></label>
+            <select id="model-select">
+              <option value="gemini-pro">Gemini Pro</option>
+              <option value="gemini-pro-vision">Gemini Pro Vision</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="max-tokens">الحد الأقصى للرموز</label>
+            <input type="number" id="max-tokens" value="2048" min="1" max="4096">
+          </div>
+          
+          <div class="form-group">
+            <label for="temperature">درجة الإبداعية <input type="range" id="temperature" min="0" max="10" value="7" step="0.1" oninput="document.getElementById('temp-value').textContent = this.value/10"></label>
+            <span id="temp-value">0.7</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="manage-tab">
+        <div class="card">
+          <h2>البوتات النشطة</h2>
+          <div id="bot-list" class="bot-list">
+            <!-- قائمة البوتات ستظهر هنا -->
+          </div>
+        </div>
+        
+        <div class="card stats-panel">
+          <div class="stat-item">
+            <h3>البوتات النشطة</h3>
+            <p id="active-bots-count">0</p>
+          </div>
+          <div class="stat-item">
+            <h3>إجمالي المستخدمين</h3>
+            <p id="total-users-count">0</p>
+          </div>
+          <div class="stat-item">
+            <h3>إجمالي الرسائل</h3>
+            <p id="total-messages-count">0</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card status-panel">
+        <h2>حالة النظام</h2>
+        <div>
+          <span class="status-indicator status-active" id="status-indicator"></span>
+          <span id="status-text">جاهز</span>
+        </div>
+        <div class="logs" id="logs">
+          <!-- سجلات النظام ستظهر هنا -->
+        </div>
+      </div>
+    </div>
+    
+    <div class="card" style="grid-column: span 2;">
+      <button id="start-bot" class="btn btn-primary" onclick="setupBot()">تشغيل البوت</button>
+      <button id="switch-to-advanced" class="btn btn-primary" onclick="switchToAdvanced()">إعدادات متقدمة</button>
+      <button id="switch-to-basic" class="btn btn-primary" style="display: none;" onclick="switchToBasic()">العودة للإعدادات الأساسية</button>
+    </div>
+  </div>
+  
+  <div id="bot-details-modal" class="modal">
+    <div class="modal-content">
+      <span class="modal-close" onclick="closeModal('bot-details-modal')">&times;</span>
+      <h2>تفاصيل البوت</h2>
+      <div id="bot-details-content"></div>
+    </div>
+  </div>
+  
+  <div id="update-bot-modal" class="modal">
+    <div class="modal-content">
+      <span class="modal-close" onclick="closeModal('update-bot-modal')">&times;</span>
+      <h2>تحديث البوت</h2>
+      <div id="update-bot-content">
+        <div class="form-group">
+          <label for="update-system-instruction">تعليمات النظام</label>
+          <textarea id="update-system-instruction"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="update-model">النموذج</label>
+          <select id="update-model">
+            <option value="gemini-pro">Gemini Pro</option>
+            <option value="gemini-pro-vision">Gemini Pro Vision</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="update-max-tokens">الحد الأقصى للرموز</label>
+          <input type="number" id="update-max-tokens" value="2048" min="1" max="4096">
+        </div>
+        <div class="form-group">
+          <label for="update-temperature">درجة الإبداعية 
+            <input type="range" id="update-temperature" min="0" max="10" value="7" step="0.1" 
+                 oninput="document.getElementById('update-temp-value').textContent = this.value/10">
+          </label>
+          <span id="update-temp-value">0.7</span>
+        </div>
+        <div class="form-group">
+          <label for="update-memory-limit">الحد الأقصى للذاكرة</label>
+          <input type="range" id="update-memory-limit" min="1" max="50" value="10" 
+                oninput="document.getElementById('update-memory-value').textContent = this.value">
+          <span id="update-memory-value">10</span> رسائل
+        </div>
+        <button class="btn btn-primary" id="save-updated-bot">حفظ التغييرات</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="confirmation-modal" class="modal">
+    <div class="modal-content">
+      <h2>تأكيد</h2>
+      <p id="confirmation-message"></p>
+      <button class="btn btn-danger" id="confirm-yes">نعم</button>
+      <button class="btn btn-primary" id="confirm-no" onclick="closeModal('confirmation-modal')">لا</button>
+    </div>
+  </div>
+  
+  <div id="success-message" class="success-message"></div>
+  
+  <script>
+    // متغيرات عامة
+    const activeBots = {};
+    const userMemory = {};
+    
+    // عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+      // تهيئة علامات التبويب
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+      });
+      
+      // تهيئة النظام
+      addLog('تم تحميل التطبيق بنجاح، جاهز لإنشاء البوت.', 'info');
+      applyTemplate('assistant');
+    });
+    
+    // وظائف علامات التبويب
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+      
+      if (tabName === 'setup') {
+        document.getElementById('setup-tab').classList.add('active');
+        document.getElementById('switch-to-advanced').style.display = 'inline-block';
+        document.getElementById('switch-to-basic').style.display = 'none';
+      } else if (tabName === 'manage') {
+        document.getElementById('manage-tab').classList.add('active');
+        loadBotList();
+      }
+    }
+    
+    function switchToAdvanced() {
+      document.getElementById('setup-tab').classList.remove('active');
+      document.getElementById('advanced-tab').classList.add('active');
+      document.getElementById('switch-to-advanced').style.display = 'none';
+      document.getElementById('switch-to-basic').style.display = 'inline-block';
+    }
+    
+    function switchToBasic() {
+      document.getElementById('advanced-tab').classList.remove('active');
+      document.getElementById('setup-tab').classList.add('active');
+      document.getElementById('switch-to-advanced').style.display = 'inline-block';
+      document.getElementById('switch-to-basic').style.display = 'none';
+    }
+    
+    // إعدادات الويب هوك
+    function toggleWebhookSettings() {
+      const webhookMode = document.getElementById('webhook-mode').value;
+      const customSettings = document.getElementById('custom-webhook-settings');
+      customSettings.style.display = webhookMode === 'custom' ? 'block' : 'none';
+    }
+    
+    // تطبيق القوالب
+    function applyTemplate(type) {
+      if (!type) return;
+      const templates = {
+        assistant: {
+          instruction: "أنت مساعد ذكي، مفيد، وصديق. تقدم إجابات دقيقة ومباشرة لأسئلة المستخدم، وتحاول فهم احتياجاته وتقديم أفضل مساعدة ممكنة.",
+          model: "gemini-pro",
+          temp: 0.7,
+          maxTokens: 2048
+        },
+        teacher: {
+          instruction: "أنت معلم خبير، تشرح المفاهيم بوضوح وبساطة. تساعد الطلاب على فهم المواضيع المعقدة بطريقة سهلة، وتجيب على أسئلتهم التعليمية بدقة وصبر.",
+          model: "gemini-pro",
+          temp: 0.5,
+          maxTokens: 3072
+        },
+        writer: {
+          instruction: "أنت كاتب محتوى إبداعي، بأسلوب جذاب وممتع. تساعد في إنشاء محتوى أصلي وفريد، وتقدم اقتراحات إبداعية لتحسين النصوص.",
+          model: "gemini-pro",
+          temp: 0.8,
+          maxTokens: 4096
+        },
+        coder: {
+          instruction: "أنت مبرمج خبير، تقدم حلولًا برمجية دقيقة وفعالة. تساعد في كتابة وتصحيح الأكواد البرمجية، وتشرح المفاهيم البرمجية بوضوح.",
+          model: "gemini-pro",
+          temp: 0.3,
+          maxTokens: 4096
+        },
+        translator: {
+          instruction: "أنت مترجم محترف، تقدم ترجمات دقيقة بين اللغات المختلفة. تحافظ على سياق ومعنى النص الأصلي، وتراعي الاختلافات الثقافية.",
+          model: "gemini-pro",
+          temp: 0.4,
+          maxTokens: 3072
+        },
+        analyzer: {
+          instruction: "أنت محلل بيانات ذكي، تقدم تحليلات وإحصاءات دقيقة. تساعد في فهم البيانات واستخلاص الرؤى منها، وتقدم توصيات مبنية على تحليل البيانات.",
+          model: "gemini-pro",
+          temp: 0.3,
+          maxTokens: 3072
+        }
+      };
+      
+      const template = templates[type];
+      document.getElementById('system-instruction').value = template.instruction;
+      document.getElementById('model-select').value = template.model;
+      document.getElementById('temperature').value = template.temp * 10;
+      document.getElementById('temp-value').textContent = template.temp;
+      document.getElementById('max-tokens').value = template.maxTokens;
+      addLog(`تم تطبيق قالب ${type} بنجاح`, 'info');
+    }
+    
+    // سجلات النظام
+    function addLog(message, type = 'info') {
+      const logs = document.getElementById('logs');
+      const logEntry = document.createElement('div');
+      logEntry.className = `log-entry log-${type}`;
+      const timestamp = new Date().toLocaleTimeString();
+      logEntry.textContent = `[${timestamp}] ${message}`;
+      logs.appendChild(logEntry);
+      logs.scrollTop = logs.scrollHeight;
+    }
+    
+    // إعداد البوت
+    function setupBot() {
+      const telegramToken = document.getElementById('telegram-token').value.trim();
+      const geminiToken = document.getElementById('gemini-token').value.trim();
+      const systemInstruction = document.getElementById('system-instruction').value.trim();
+      
+      if (!telegramToken || !geminiToken) {
+        addLog('يجب إدخال توكن تليجرام وتوكن Gemini', 'error');
+        return;
+      }
+      
+      addLog('جاري التحقق من توكن تليجرام...', 'info');
+      
+      // التحقق من توكن تليجرام
+      getBotInfo(telegramToken)
+        .then(botInfo => {
+          addLog(`تم التحقق من توكن تليجرام (${botInfo.username})`, 'success');
+          return verifyGeminiToken(geminiToken);
+        })
+        .then(() => {
+          addLog('تم التحقق من توكن Gemini', 'success');
+          
+          const settings = {
+            webhookMode: document.getElementById('webhook-mode').value,
+            customWebhookUrl: document.getElementById('custom-webhook-url').value,
+            supportImages: document.getElementById('support-images').checked,
+            supportVideo: document.getElementById('support-video').checked,
+            supportAudio: document.getElementById('support-audio').checked,
+            supportDocuments: document.getElementById('support-documents').checked,
+            model: document.getElementById('model-select').value,
+            temperature: document.getElementById('temperature').value / 10,
+            maxTokens: document.getElementById('max-tokens').value,
+            memoryLimit: document.getElementById('memory-limit').value
+          };
+          
+          return createBot(telegramToken, geminiToken, systemInstruction, settings);
+        })
+        .then(result => {
+          const botId = result.botId;
+          addLog(`تم إنشاء البوت بنجاح! معرف: ${botId}`, 'success');
+          document.getElementById('status-text').textContent = 'متصل';
+          document.getElementById('status-indicator').className = 'status-indicator status-active';
+          
+          // إضافة البوت إلى القائمة
+          activeBots[botId] = {
+            id: botId,
+            info: result.botInfo,
+            token: telegramToken,
+            settings: {
+              geminiToken,
+              systemInstruction,
+              model: document.getElementById('model-select').value,
+              temperature: document.getElementById('temperature').value / 10,
+              maxTokens: document.getElementById('max-tokens').value,
+              memoryLimit: document.getElementById('memory-limit').value
+            }
+          };
+          
+          // الانتقال لإدارة البوتات
+          switchTab('manage');
+        })
+        .catch(error => {
+          addLog(`خطأ: ${error.message}`, 'error');
+        });
+    }
+    
+    // الحصول على معلومات البوت
+    function getBotInfo(token) {
+      return new Promise((resolve, reject) => {
+        // محاكاة طلب API
+        addLog('جاري الاتصال بـ API تليجرام...', 'info');
+        setTimeout(() => {
+          const tokenParts = token.split(':');
+          if (tokenParts.length !== 2 || !/^\d+$/.test(tokenParts[0])) {
+            reject(new Error('صيغة توكن تليجرام غير صحيحة'));
+            return;
+          }
+          resolve({
+            id: Date.now(),
+            first_name: "GeminiBot",
+            username: "YourGeminiBot"
+          });
+        }, 1000);
+      });
+    }
+    
+    // التحقق من توكن Gemini
+    function verifyGeminiToken(token) {
+      return new Promise((resolve, reject) => {
+        // محاكاة طلب API
+        addLog('جاري التحقق من توكن Gemini...', 'info');
+        setTimeout(() => {
+          if (!token.startsWith('AI') || token.length < 10) {
+            reject(new Error('صيغة توكن Gemini غير صحيحة'));
+            return;
+          }
+          resolve();
+        }, 1000);
+      });
+    }
+    
+    // إنشاء البوت
+    function createBot(telegramToken, geminiToken, systemInstruction, settings) {
+      return new Promise((resolve, reject) => {
+        // محاكاة طلب API
+        addLog('جاري إنشاء البوت...', 'info');
+        setTimeout(() => {
+          const botId = Date.now().toString();
+          resolve({
+            botId,
+            botInfo: {
+              id: botId,
+              first_name: "GeminiBot",
+              username: "YourGeminiBot"
+            },
+            webhookUrl: "https://yourserver.com/webhook"
+          });
+        }, 2000);
+      });
+    }
+    
+    // تحميل قائمة البوتات
+    function loadBotList() {
+      const botList = document.getElementById('bot-list');
+      botList.innerHTML = '';
+      
+      const botIds = Object.keys(activeBots);
+      document.getElementById('active-bots-count').textContent = botIds.length;
+      
+      if (botIds.length === 0) {
+        botList.innerHTML = '<p>لا توجد بوتات نشطة. قم بإنشاء بوت جديد من علامة تبويب "إنشاء بوت"</p>';
+        return;
+      }
+      
+      botIds.forEach(botId => {
+        const bot = activeBots[botId];
+        addBotToList(botId, bot.info);
+      });
+    }
+    
+    // إضافة بوت للقائمة
+    function addBotToList(botId, botInfo) {
+      const botList = document.getElementById('bot-list');
+      const botItem = document.createElement('div');
+      botItem.className = 'bot-item';
+      botItem.id = `bot-${botId}`;
+      
+      const botInfoDiv = document.createElement('div');
+      botInfoDiv.className = 'bot-info';
+      botInfoDiv.innerHTML = `<strong>${botInfo.first_name}</strong> (@${botInfo.username})`;
+      
+      const botActions = document.createElement('div');
+      botActions.className = 'bot-actions';
+      
+      // أزرار الإجراءات
+      const detailsButton = document.createElement('button');
+      detailsButton.className = 'btn btn-primary btn-small';
+      detailsButton.textContent = 'تفاصيل';
+      detailsButton.onclick = () => showBotDetails(botId);
+      
+      const updateButton = document.createElement('button');
+      updateButton.className = 'btn btn-primary btn-small';
+      updateButton.textContent = 'تحديث';
+      updateButton.onclick = () => updateBot(botId);
+      
+      const exportButton = document.createElement('button');
+      exportButton.className = 'btn btn-export btn-small';
+      exportButton.textContent = 'تصدير';
+      exportButton.onclick = () => exportBotConfig(botId);
+      
+      const stopButton = document.createElement('button');
+      stopButton.className = 'btn btn-danger btn-small';
+      stopButton.textContent = 'إيقاف';
+      stopButton.onclick = () => showConfirmation(`هل أنت متأكد من إيقاف البوت ${botInfo.username}؟`, () => stopBot(botId));
+      
+      botActions.appendChild(detailsButton);
+      botActions.appendChild(updateButton);
+      botActions.appendChild(exportButton);
+      botActions.appendChild(stopButton);
+      
+      botItem.appendChild(botInfoDiv);
+      botItem.appendChild(botActions);
+      botList.appendChild(botItem);
+    }
+    
+    // عرض تفاصيل البوت
+    function showBotDetails(botId) {
+      const bot = activeBots[botId];
+      if (!bot) {
+        addLog(`البوت غير موجود: ${botId}`, 'error');
+        return;
+      }
+      
+      const detailsContent = document.getElementById('bot-details-content');
+      detailsContent.innerHTML = `
+        <p><strong>اسم البوت:</strong> ${bot.info.first_name}</p>
+        <p><strong>المعرف:</strong> @${bot.info.username}</p>
+        <p><strong>معرف النظام:</strong> ${botId}</p>
+        <p><strong>النموذج:</strong> ${bot.settings.model}</p>
+        <p><strong>درجة الإبداعية:</strong> ${bot.settings.temperature}</p>
+        <p><strong>الحد الأقصى للرموز:</strong> ${bot.settings.maxTokens}</p>
+        <p><strong>حد الذاكرة:</strong> ${bot.settings.memoryLimit} رسائل</p>
+        <h3>تعليمات النظام:</h3>
+        <pre>${bot.settings.systemInstruction}</pre>
+      `;
+      
+      openModal('bot-details-modal');
+    }
+    
+    // فتح النافذة المنبثقة
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'block';
+    }
+    
+    // إغلاق النافذة المنبثقة
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    // عرض رسالة تأكيد
+    function showConfirmation(message, callback) {
+      document.getElementById('confirmation-message').textContent = message;
+      document.getElementById('confirm-yes').onclick = () => {
+        callback();
+        closeModal('confirmation-modal');
+      };
+      openModal('confirmation-modal');
+    }
+    
+    // عرض رسالة نجاح
+    function showSuccessMessage(message) {
+      const successElement = document.getElementById('success-message');
+      successElement.textContent = message;
+      successElement.style.display = 'block';
+      setTimeout(() => {
+        successElement.style.display = 'none';
+      }, 3000);
+    }
+    
+    // تحديث البوت
+    function updateBot(botId) {
+      const bot = activeBots[botId];
+      if (!bot) {
+        addLog(`البوت غير موجود: ${botId}`, 'error');
+        return;
+      }
+      
+      document.getElementById('update-system-instruction').value = bot.settings.systemInstruction;
+      document.getElementById('update-model').value = bot.settings.model;
+      document.getElementById('update-max-tokens').value = bot.settings.maxTokens;
+      document.getElementById('update-temperature').value = bot.settings.temperature * 10;
+      document.getElementById('update-temp-value').textContent = bot.settings.temperature;
+      document.getElementById('update-memory-limit').value = bot.settings.memoryLimit;
+      document.getElementById('update-memory-value').textContent = bot.settings.memoryLimit;
+
+
+
+
+
+      // استكمال دالة التحديث
+      document.getElementById('save-updated-bot').onclick = () => saveUpdatedBot(botId);
+      openModal('update-bot-modal');
+    }
+    
+    // حفظ التحديثات على البوت
+    function saveUpdatedBot(botId) {
+      const bot = activeBots[botId];
+      if (!bot) {
+        addLog(`البوت غير موجود: ${botId}`, 'error');
+        return;
+      }
+      
+      bot.settings.systemInstruction = document.getElementById('update-system-instruction').value;
+      bot.settings.model = document.getElementById('update-model').value;
+      bot.settings.maxTokens = document.getElementById('update-max-tokens').value;
+      bot.settings.temperature = document.getElementById('update-temperature').value / 10;
+      bot.settings.memoryLimit = document.getElementById('update-memory-limit').value;
+      
+      addLog(`تم تحديث إعدادات البوت ${bot.info.username} بنجاح`, 'success');
+      showSuccessMessage(`تم تحديث إعدادات البوت بنجاح`);
+      closeModal('update-bot-modal');
+    }
+    
+    // إيقاف البوت
+    function stopBot(botId) {
+      const bot = activeBots[botId];
+      if (!bot) {
+        addLog(`البوت غير موجود: ${botId}`, 'error');
+        return;
+      }
+      
+      // محاكاة إيقاف البوت من الخادم
+      addLog(`جاري إيقاف البوت ${bot.info.username}...`, 'info');
+      
+      setTimeout(() => {
+        const botElement = document.getElementById(`bot-${botId}`);
+        if (botElement) {
+          botElement.classList.add('bot-inactive');
+        }
+        
+        delete activeBots[botId];
+        addLog(`تم إيقاف البوت ${bot.info.username} بنجاح`, 'success');
+        document.getElementById('active-bots-count').textContent = Object.keys(activeBots).length;
+        
+        if (Object.keys(activeBots).length === 0) {
+          document.getElementById('status-text').textContent = 'جاهز';
+          document.getElementById('status-indicator').className = 'status-indicator status-inactive';
+        }
+      }, 1000);
+    }
+    
+    // تصدير إعدادات البوت
+    function exportBotConfig(botId) {
+      const bot = activeBots[botId];
+      if (!bot) {
+        addLog(`البوت غير موجود: ${botId}`, 'error');
+        return;
+      }
+      
+      // إنشاء نسخة من الإعدادات بدون البيانات الحساسة
+      const config = {
+        botName: bot.info.first_name,
+        username: bot.info.username,
+        systemInstruction: bot.settings.systemInstruction,
+        model: bot.settings.model,
+        temperature: bot.settings.temperature,
+        maxTokens: bot.settings.maxTokens,
+        memoryLimit: bot.settings.memoryLimit,
+        exportDate: new Date().toISOString()
+      };
+      
+      // تحويل الإعدادات إلى JSON
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `bot_${bot.info.username}_config.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+      
+      addLog(`تم تصدير إعدادات البوت ${bot.info.username} بنجاح`, 'success');
+      showSuccessMessage(`تم تصدير الإعدادات بنجاح`);
+    }
+    
+    // استيراد إعدادات البوت
+    function importBotConfig() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.readAsText(file, 'UTF-8');
+        
+        reader.onload = readerEvent => {
+          try {
+            const content = readerEvent.target.result;
+            const config = JSON.parse(content);
+            
+            // التحقق من وجود البيانات المطلوبة
+            if (!config.systemInstruction || !config.model) {
+              throw new Error('ملف الإعدادات غير صالح');
+            }
+            
+            // تعبئة النموذج بالبيانات المستوردة
+            document.getElementById('system-instruction').value = config.systemInstruction;
+            document.getElementById('model-select').value = config.model || 'gemini-pro';
+            document.getElementById('temperature').value = (config.temperature || 0.7) * 10;
+            document.getElementById('temp-value').textContent = config.temperature || 0.7;
+            document.getElementById('max-tokens').value = config.maxTokens || 2048;
+            document.getElementById('memory-limit').value = config.memoryLimit || 10;
+            document.getElementById('memory-value').textContent = config.memoryLimit || 10;
+            
+            switchTab('setup');
+            addLog(`تم استيراد الإعدادات بنجاح من ${file.name}`, 'success');
+            showSuccessMessage(`تم استيراد الإعدادات بنجاح`);
+          } catch (error) {
+            addLog(`خطأ في استيراد الإعدادات: ${error.message}`, 'error');
+          }
+        };
+      };
+      
+      input.click();
+    }
+    
+    // معالجة الرسائل
+    function processMessage(botId, message) {
+      const bot = activeBots[botId];
+      if (!bot) {
+        console.error(`البوت غير موجود: ${botId}`);
+        return;
+      }
+      
+      const userId = message.from.id;
+      const chatId = message.chat.id;
+      const messageText = message.text || '';
+      
+      // إدارة ذاكرة المستخدم
+      if (!userMemory[botId]) {
+        userMemory[botId] = {};
+      }
+      
+      if (!userMemory[botId][userId]) {
+        userMemory[botId][userId] = {
+          messages: [],
+          lastActivity: Date.now()
+        };
+      }
+      
+      const user = userMemory[botId][userId];
+      user.lastActivity = Date.now();
+      
+      // إضافة الرسالة إلى ذاكرة المستخدم
+      user.messages.push({
+        role: 'user',
+        content: messageText,
+        timestamp: Date.now()
+      });
+      
+      // حفظ عدد محدود من الرسائل
+      if (user.messages.length > bot.settings.memoryLimit) {
+        user.messages.shift();
+      }
+      
+      // محاكاة استجابة من Gemini API
+      setTimeout(() => {
+        const response = `هذه استجابة محاكاة لرسالتك: "${messageText}"`;
+        
+        // إضافة استجابة البوت إلى الذاكرة
+        user.messages.push({
+          role: 'assistant',
+          content: response,
+          timestamp: Date.now()
+        });
+        
+        // تحديث إحصائيات
+        document.getElementById('total-messages-count').textContent = 
+          (parseInt(document.getElementById('total-messages-count').textContent) || 0) + 1;
+          
+        addLog(`تم الرد على المستخدم ${userId} عبر البوت ${botId}`, 'info');
+      }, 500);
+    }
+    
+    // تنظيف الذاكرة
+    setInterval(() => {
+      const now = Date.now();
+      const inactiveTime = 24 * 60 * 60 * 1000; // 24 ساعة
+      
+      Object.keys(userMemory).forEach(botId => {
+        Object.keys(userMemory[botId] || {}).forEach(userId => {
+          const user = userMemory[botId][userId];
+          if (now - user.lastActivity > inactiveTime) {
+            delete userMemory[botId][userId];
+            addLog(`تم حذف ذاكرة المستخدم ${userId} من البوت ${botId} بسبب عدم النشاط`, 'info');
+          }
+        });
+      });
+    }, 60 * 60 * 1000); // تنظيف كل ساعة
+    
+    // تحديث إحصائيات الاستخدام
+    setInterval(() => {
+      let totalUsers = 0;
+      
+      Object.keys(userMemory).forEach(botId => {
+        totalUsers += Object.keys(userMemory[botId] || {}).length;
+      });
+      
+      document.getElementById('total-users-count').textContent = totalUsers;
+    }, 60 * 1000); // تحديث كل دقيقة
+    
+    // معالجة الأخطاء غير المتوقعة
+    window.onerror = function(message, source, lineno, colno, error) {
+      addLog(`خطأ JavaScript: ${message}`, 'error');
+      console.error(error);
+      return true;
+    };
+    
+    // إغلاق النوافذ المنبثقة عند النقر خارجها
+    window.onclick = function(event) {
+      const modals = document.getElementsByClassName('modal');
+      for (let i = 0; i < modals.length; i++) {
+        if (event.target == modals[i]) {
+          modals[i].style.display = 'none';
+        }
+      }
+    };
+    
+    // تحميل البوتات عند بدء التشغيل
+    function loadBotsFromServer() {
+      // محاكاة تحميل البوتات من الخادم
+      addLog('جاري التحقق من البوتات المحفوظة...', 'info');
+      // هذه الدالة ستستبدل بطلب API حقيقي لاسترجاع البوتات المحفوظة
+    }
+    
+    // تهيئة إضافية عند بدء التشغيل
+    loadBotsFromServer();
+  </script>
+</body>
+</html>
